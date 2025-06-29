@@ -67,6 +67,16 @@ steps:
       - 'allUsers:objectViewer'
       - 'gs://aistory-frontend-neocore-f43f5'
 
+  # 7. Set the main page for the website
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Set Main Page'
+    args:
+      - 'storage'
+      - 'buckets'
+      - 'update'
+      - 'gs://aistory-frontend-neocore-f43f5'
+      - '--web-main-page-suffix=index.html'
+
 substitutions:
   _PROJECT_ID: 'neocore-f43f5'
 
