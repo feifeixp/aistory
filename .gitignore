@@ -11,3 +11,7 @@ npm-debug.log*
 # Build output
 /dist
 /bundle
+
+# Exclude all yaml files except cloudbuild.yaml
+*.yaml
+!cloudbuild.yaml

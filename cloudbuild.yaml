@@ -1,0 +1,74 @@
+steps:
+  # 1. Deploy the backend service to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Deploy Backend'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'aistory-backend'
+      - '--source'
+      - '.'
+      - '--region'
+      - 'asia-northeast1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--project'
+      - '${_PROJECT_ID}'
+
+  # 2. Get the URL of the deployed backend service
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Get Backend URL'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gcloud run services describe aistory-backend \
+          --platform managed \
+          --region asia-northeast1 \
+          --format 'value(status.url)' > backend_url.txt
+
+  # 3. Replace the placeholder URL in the frontend script
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Update Frontend URL'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        sed -i "s|http://localhost:3000|$(cat backend_url.txt)|g" script.js
+
+  # 4. Create the Cloud Storage bucket if it doesn't exist
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Create GCS Bucket'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gcloud storage buckets create gs://aistory-frontend-neocore-f43f5 --location=asia-northeast1 --project=${_PROJECT_ID} || echo "Bucket already exists"
+
+  # 5. Upload the frontend files to the bucket
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Upload Frontend'
+    args:
+      - 'storage'
+      - 'cp'
+      - 'index.html'
+      - 'style.css'
+      - 'script.js'
+      - 'gs://aistory-frontend-neocore-f43f5/'
+
+  # 6. Make the frontend files publicly accessible
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Make Frontend Public'
+    args:
+      - 'storage'
+      - 'iam'
+      - 'ch'
+      - 'allUsers:objectViewer'
+      - 'gs://aistory-frontend-neocore-f43f5'
+
+substitutions:
+  _PROJECT_ID: 'neocore-f43f5'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
