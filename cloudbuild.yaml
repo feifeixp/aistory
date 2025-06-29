@@ -5,9 +5,9 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'aistory-backend'
+      - 'aistory' # Corrected service name
       - '--source'
-      - '.'
+      - './backend' # Deploy from the backend directory
       - '--region'
       - 'asia-northeast1'
       - '--platform'
@@ -23,21 +23,30 @@ steps:
     args:
       - '-c'
       - |
-        gcloud run services describe aistory-backend \
+        gcloud run services describe aistory \
           --platform managed \
           --region asia-northeast1 \
           --format 'value(status.url)' > backend_url.txt
 
-  # 3. Replace the placeholder URL in the frontend script
+  # 3. Build the Next.js frontend
+  - name: 'gcr.io/cloud-builders/npm'
+    id: 'Build Frontend'
+    args: ['install']
+    dir: 'frontend'
+  - name: 'gcr.io/cloud-builders/npm'
+    args: ['run', 'build']
+    dir: 'frontend'
+
+  # 4. Replace the placeholder URL in the frontend script
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'Update Frontend URL'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        sed -i "s|http://localhost:3000|$(cat backend_url.txt)|g" script.js
+        sed -i "s|http://localhost:3000|$(cat backend_url.txt)|g" frontend/src/app/page.tsx
 
-  # 4. Create the Cloud Storage bucket if it doesn't exist
+  # 5. Create the Cloud Storage bucket if it doesn't exist
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'Create GCS Bucket'
     entrypoint: 'bash'
@@ -46,18 +55,17 @@ steps:
       - |
         gcloud storage buckets create gs://aistory-frontend-neocore-f43f5 --location=asia-northeast1 --project=${_PROJECT_ID} || echo "Bucket already exists"
 
-  # 5. Upload the frontend files to the bucket
+  # 6. Upload the frontend files to the bucket
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'Upload Frontend'
     args:
       - 'storage'
       - 'cp'
-      - 'index.html'
-      - 'style.css'
-      - 'script.js'
+      - '-r'
+      - 'frontend/out/*'
       - 'gs://aistory-frontend-neocore-f43f5/'
 
-  # 6. Make the frontend files publicly accessible
+  # 7. Make the frontend files publicly accessible
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'Make Frontend Public'
     args:
@@ -67,7 +75,7 @@ steps:
       - 'allUsers:objectViewer'
       - 'gs://aistory-frontend-neocore-f43f5'
 
-  # 7. Set the main page for the website
+  # 8. Set the main page for the website
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'Set Main Page'
     args:
